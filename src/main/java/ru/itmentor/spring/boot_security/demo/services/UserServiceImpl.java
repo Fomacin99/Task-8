@@ -1,36 +1,39 @@
 package ru.itmentor.spring.boot_security.demo.services;
 
 import org.hibernate.Hibernate;
+import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import ru.itmentor.spring.boot_security.demo.dto.UserDTO;
+import ru.itmentor.spring.boot_security.demo.dto.UserResponceDTO;
 import ru.itmentor.spring.boot_security.demo.models.User;
 import ru.itmentor.spring.boot_security.demo.repositories.UserRepository;
 
-import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 @Service
 @Transactional(readOnly = true)
 public class UserServiceImpl implements UserService {
 
-    @Autowired
-    public UserServiceImpl(UserRepository userRepository, BCryptPasswordEncoder passwordEncoder) {
-        this.userRepository = userRepository;
-        this.passwordEncoder = passwordEncoder;
-    }
-
+    private final ModelMapper modelMapper;
     private final UserRepository userRepository;
     private final BCryptPasswordEncoder passwordEncoder;
 
+    @Autowired
+    public UserServiceImpl(UserRepository userRepository, BCryptPasswordEncoder passwordEncoder, ModelMapper modelMapper) {
+        this.userRepository = userRepository;
+        this.passwordEncoder = passwordEncoder;
+        this.modelMapper = modelMapper;
+    }
 
     public List<User> findAll() {
         return userRepository.findAll();
     }
-
 
     public User findById(Long id) {
         return userRepository.findById(id).orElse(null);
@@ -47,8 +50,9 @@ public class UserServiceImpl implements UserService {
     }
 
     @Transactional
-    public void delete(Long id) {
+    public boolean delete(Long id) {
         userRepository.deleteById(id);
+        return false;
     }
 
     @Transactional
@@ -65,12 +69,32 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
+    public User updateUser(User updatedUser) {
+        return updatedUser;
+    }
+
+    @Override
+    public UserResponceDTO getUserDTOById(Long id) {
+        Optional<User> user = userRepository.findById(id);
+        return modelMapper.map(user.orElse(null), UserResponceDTO.class);
+    }
+
+    @Transactional
+    @Override
+    public void updateUserFromDTO(Long id, UserDTO userDTO) {
+        Optional<User> user = userRepository.findById(id);
+        if (user.isPresent()) {
+            modelMapper.map(userDTO, user.get());
+            userRepository.save(user.get());
+        }
+    }
+
+    @Override
     public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
         User user = userRepository.findByName(username);
         if (user != null) {
-            Hibernate.initialize((user.getRoles()));
+            Hibernate.initialize(user.getRoles());
         }
         return user;
     }
-
 }
